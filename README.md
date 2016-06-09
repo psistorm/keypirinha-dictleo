@@ -11,7 +11,6 @@ There are multiple ways to search Leo:
 * df - Translating a German word to French and vice versa.
 * ds - Translating a German word to Spanish and vice versa.
 * di - Translating a German word to Italian and vice versa.
-* dc - Translating a German word to Chinese and vice versa.
 * dr - Translating a German word to Russian and vice versa.
 * db - Translating a German word to Portuguese and vice versa.
 * dp - Translating a German word to Polish and vice versa.
