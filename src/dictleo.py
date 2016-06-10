@@ -2,77 +2,59 @@
 
 import keypirinha as kp
 import keypirinha_util as kpu
-from .lib import leoparser
+from .lib.leoparser import LeoParser
+
 
 class DictLeo(kp.Plugin):
     """
     Translate words with leo online dictionary
     """
-    
-    KEYWORDS_AND_CODES = {}
-    ICONS = {}
-    ACTIONS = {}
-    
+
     ACTION_DEFAULT = 'default'
+
+    _languages = {}
+    _icons = {}
+    _actions = {}
     
-    parser = None
-    proxy = None
+    _parser = None
+
 
     def __init__(self):
         super().__init__()
-        
 
     def __del__(self):
         self._clean_icons()
-        
 
     def on_start(self):
-        self.parser = leoparser.LeoParser()
+        self._parser = LeoParser()
         
         self._read_config()
         
         self._clean_icons()
+        self._init_icons()
         
-        self.ICONS['de'] = self.load_icon('res://DictLeo/icons/icon_de.png')
-        self.ICONS['fr'] = self.load_icon('res://DictLeo/icons/icon_fr.png')
-        self.ICONS['en'] = self.load_icon('res://DictLeo/icons/icon_uk.png')
-        self.ICONS['es'] = self.load_icon('res://DictLeo/icons/icon_es.png')
-        self.ICONS['it'] = self.load_icon('res://DictLeo/icons/icon_it.png')
-        self.ICONS['ru'] = self.load_icon('res://DictLeo/icons/icon_ru.png')
-        self.ICONS['pt'] = self.load_icon('res://DictLeo/icons/icon_pt.png')
-        self.ICONS['pl'] = self.load_icon('res://DictLeo/icons/icon_pl.png')
-        
-        self.KEYWORDS_AND_CODES.clear()
-        
-        self.KEYWORDS_AND_CODES['de'] = leoparser.LanguageEntry('de', 'ende', 'Translate to German or English', self.ICONS['en'])
-        self.KEYWORDS_AND_CODES['df'] = leoparser.LanguageEntry('df', 'frde', 'Translate to German or French', self.ICONS['fr'])
-        self.KEYWORDS_AND_CODES['ds'] = leoparser.LanguageEntry('ds', 'esde', 'Translate to German or Spanish', self.ICONS['es'])
-        self.KEYWORDS_AND_CODES['di'] = leoparser.LanguageEntry('di', 'itde', 'Translate to German or Italian', self.ICONS['it'])
-        self.KEYWORDS_AND_CODES['dr'] = leoparser.LanguageEntry('dr', 'rude', 'Translate to German or Russian', self.ICONS['ru'])
-        self.KEYWORDS_AND_CODES['db'] = leoparser.LanguageEntry('db', 'ptde', 'Translate to German or Portuguese', self.ICONS['pt'])
-        self.KEYWORDS_AND_CODES['dp'] = leoparser.LanguageEntry('dp', 'plde', 'Translate to German or Polish', self.ICONS['pl'])
-        
-        self.ACTIONS[self.ACTION_DEFAULT] = self.create_action(name=self.ACTION_DEFAULT, label='Copy to clipboard', short_desc='Copy the selected translation text to the clipboard.')
-        
-        self.set_actions(kp.ItemCategory.EXPRESSION, list(self.ACTIONS.values()))
+        self._languages.clear()
+        self._init_languages()
 
+        self._init_actions()
 
     def on_catalog(self):
         self._read_config()
+
         catalog = []
         
-        for languageKey, languageData in self.KEYWORDS_AND_CODES.items():
+        for language_key, language_data in self._languages.items():
             catalog.append(self.create_item(
                 category=kp.ItemCategory.KEYWORD,
-                label=languageData.keyword,
-                short_desc=languageData.description,
-                target=languageData.keyword,
+                label=language_data.keyword,
+                short_desc=language_data.description,
+                target=language_data.keyword,
                 args_hint=kp.ItemArgsHint.REQUIRED,
                 hit_hint=kp.ItemHitHint.NOARGS,
-                icon_handle=languageData.iconHandle))
+                icon_handle=language_data.icon_handle)
+            )
                 
         self.set_catalog(catalog)
-
 
     def on_suggest(self, user_input, initial_item, current_item):
         if len(user_input) == 0:
@@ -84,27 +66,32 @@ class DictLeo(kp.Plugin):
         # case user is still typing her search
         if self.should_terminate(0.250):
             return
-        if initial_item and initial_item.category() != kp.ItemCategory.KEYWORD:
+        if initial_item.category() != kp.ItemCategory.KEYWORD:
             return
 
         suggestions = []
         
-        languageData = self.KEYWORDS_AND_CODES[initial_item.target()]
-        
-        for resultItem in self.parser.on_translate(languageData.languageCode, user_input):
-            itemIcon = self.ICONS[resultItem.language]
+        current_language = self._languages[initial_item.target()]
+
+        for leo_translation in self._parser.translate(current_language.language_code, user_input):
+            item_icon = self._icons[leo_translation.language]
+
             suggestions.append(self.create_item(
                 category=kp.ItemCategory.EXPRESSION,
-                label=resultItem.caption,
-                short_desc=resultItem.description,
-                target=resultItem.caption,
+                label=leo_translation.caption,
+                short_desc=leo_translation.description,
+                target=leo_translation.caption,
                 args_hint=kp.ItemArgsHint.FORBIDDEN,
                 hit_hint=kp.ItemHitHint.IGNORE,
-                icon_handle=itemIcon,
-                data_bag=str(resultItem.caption)))
+                icon_handle=item_icon,
+                data_bag=kpu.kwargs_encode(
+                    language_code=current_language.language_code,
+                    item_language=leo_translation.language,
+                    text=leo_translation.caption
+                )
+            ))
 
         self.set_suggestions(suggestions, kp.Match.ANY, kp.Sort.NONE)
-
 
     def on_execute(self, item, action):
         if not item and item.category() != kp.ItemCategory.EXPRESSION:
@@ -113,30 +100,105 @@ class DictLeo(kp.Plugin):
         if not action or action.name() == self.ACTION_DEFAULT:
             kpu.set_clipboard(item.label())
 
-
     def on_events(self, flags):
         if flags & kp.Events.PACKCONFIG:
             self.info("Configuration changed, rebuilding catalog...")
             self.on_catalog()
 
-
     def _read_config(self):
         settings = self.load_settings()
         
         proxy_enabled = settings.get_bool("proxy_enabled", "main", False)
-        proxy_http_url = settings.get_stripped("proxy_http_url", "main", None)
-        proxy_https_url = settings.get_stripped("proxy_https_url", "main", None)
-        
-        if proxy_enabled == False:
-            self.proxy = leoparser.ProxyData(proxy_enabled)
+        if not proxy_enabled:
+            self._parser.set_proxy()
         else:
-            self.proxy = leoparser.ProxyData(proxy_enabled, proxy_http_url, proxy_https_url)
-        
-        self.parser.set_proxy(self.proxy)
-    
-    
+            proxy_http_url = settings.get_stripped("proxy_http_url", "main", None)
+            self._parser.set_proxy(proxy_http_url)
+
     def _clean_icons(self):
-        for key, icon in self.ICONS.items():
+        for key, icon in self._icons.items():
             icon.free()
 
-        self.ICONS.clear()
+        self._icons.clear()
+
+    def _init_icons(self):
+        self._icons['de'] = self.load_icon('res://DictLeo/icons/icon_de.png')
+        self._icons['fr'] = self.load_icon('res://DictLeo/icons/icon_fr.png')
+        self._icons['en'] = self.load_icon('res://DictLeo/icons/icon_uk.png')
+        self._icons['es'] = self.load_icon('res://DictLeo/icons/icon_es.png')
+        self._icons['it'] = self.load_icon('res://DictLeo/icons/icon_it.png')
+        self._icons['ru'] = self.load_icon('res://DictLeo/icons/icon_ru.png')
+        self._icons['pt'] = self.load_icon('res://DictLeo/icons/icon_pt.png')
+        self._icons['pl'] = self.load_icon('res://DictLeo/icons/icon_pl.png')
+
+    def _init_languages(self):
+        self._languages['de'] = LanguageEntry(
+            keyword='de',
+            language_code='ende',
+            description='Translate to German or English',
+            icon_handle=self._icons['en']
+        )
+
+        self._languages['df'] = LanguageEntry(
+            keyword='df',
+            language_code='frde',
+            description='Translate to German or French',
+            icon_handle=self._icons['fr']
+        )
+
+        self._languages['ds'] = LanguageEntry(
+            keyword='ds',
+            language_code='esde',
+            description='Translate to German or Spanish',
+            icon_handle=self._icons['es']
+        )
+
+        self._languages['di'] = LanguageEntry(
+            keyword='di',
+            language_code='itde',
+            description='Translate to German or Italian',
+            icon_handle=self._icons['it']
+        )
+
+        self._languages['dr'] = LanguageEntry(
+            keyword='dr',
+            language_code='rude',
+            description='Translate to German or Russian',
+            icon_handle=self._icons['ru']
+        )
+
+        self._languages['db'] = LanguageEntry(
+            keyword='db',
+            language_code='ptde',
+            description='Translate to German or Portuguese',
+            icon_handle=self._icons['pt']
+        )
+
+        self._languages['dp'] = LanguageEntry(
+            keyword='dp',
+            language_code='plde',
+            description='Translate to German or Polish',
+            icon_handle=self._icons['pl']
+        )
+
+    def _init_actions(self):
+        self._actions[self.ACTION_DEFAULT] = self.create_action(
+            name=self.ACTION_DEFAULT,
+            label='Copy to clipboard',
+            short_desc='Copy the selected translation text to the clipboard.'
+        )
+
+        self.set_actions(kp.ItemCategory.EXPRESSION, list(self._actions.values()))
+
+
+class LanguageEntry:
+    keyword = None
+    language_code = None
+    description = None
+    icon_handle = None
+
+    def __init__(self, keyword, language_code, description, icon_handle):
+        self.keyword = keyword
+        self.language_code = language_code
+        self.description = description
+        self.icon_handle = icon_handle

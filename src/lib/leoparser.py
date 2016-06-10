@@ -1,92 +1,72 @@
+from .webrequest import get_opener
+
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
-class ProxyData:
-    
-    proxy_enabled = False
-    proxy_http_url = None
-    proxy_https_url = None
 
-    def __init__(self, proxy_enabled, proxy_http_url = None, proxy_https_url = None):
-        self.proxy_enabled = proxy_enabled
-        self.proxy_http_url = proxy_http_url
-        self.proxy_https_url = proxy_https_url
+XML_TAG_SEARCH = 'search'
 
+XML_TAG_LEFT_WORD = 'hitWordCntLeft'
+XML_TAG_RIGHT_WORD = 'hitWordCntRight'
 
+XML_TAG_ENTRY = 'entry'
+XML_TAG_WORD = 'word'
+XML_TAG_WORDS = 'words'
 
-class TranslatedEntry:
-    
-    caption = None
-    description = None
-    language = None
-    
-    def __init__(self, caption, description, language):
-        self.caption = caption
-        self.description = description
-        self.language = language
+PLACEHOLDER_QUERY = '{{query}}'
+PLACEHOLDER_TRANSLATIONCODE = '{{translation_code}}'
+
+LEO_SUGGESTION_SERVICE = 'http://dict.leo.org/dictQuery/m-query/conf/{{translation_code}}/query.conf/strlist.json?q={{query}}'
+LEO_TRANSLATION_SERVICE = 'http://dict.leo.org/dictQuery/m-vocab/{{translation_code}}/query.xml?tolerMode=nof&lp={{translation_code}}&lang=de&rmWords=off&rmSearch=on&search={{query}}&searchLoc=0&resultOrder=basic&multiwordShowSingle=on&pos=0&sectLenMax=16&n=1'
 
 
 class LeoParser:
 
-    LEO_QUERY_TEMPLATE = "{{query}}"
-    LEO_TRANSLATIONCODE_TEMPLATE = "{{translationCode}}"
-
-    LEO_SUGGESTION_SERVICE = "http://dict.leo.org/dictQuery/m-query/conf/ende/query.conf/strlist.json?q={{query}}"
-    LEO_TRANSLATION_SERVICE = "http://dict.leo.org/dictQuery/m-vocab/{{translationCode}}/query.xml?tolerMode=nof&lp={{translationCode}}&lang=de&rmWords=off&rmSearch=on&search={{query}}&searchLoc=0&resultOrder=basic&multiwordShowSingle=on&pos=0&sectLenMax=16&n=1"
-
-    urlOpener = None
+    _url_opener = None
 
     def __init__(self):
-    	self.urlOpener = urllib.request.build_opener()
+        self._url_opener = get_opener()
 
-    def set_proxy(self, proxyData):
-        if proxyData.proxy_enabled:
-            proxy = urllib.request.ProxyHandler({'http' : proxyData.proxy_http_url, 'https' : proxyData.proxy_https_url})
-            self.urlOpener = urllib.request.build_opener(proxy)          
-        else:
-            self.urlOpener = urllib.request.build_opener()
-            
-            
-    def on_translate(self, languageCode, searchText):
-        resultList = []
+    def set_proxy(self, proxy_url=None):
+        self._url_opener = get_opener(proxy_url)
+
+    def translate(self, language_code, search_text):
+        result_list = []
         
-        secureSearchText = urllib.parse.quote(searchText)
-        suggestRequest = self.LEO_TRANSLATION_SERVICE.replace(self.LEO_QUERY_TEMPLATE, secureSearchText)
-        suggestRequest = suggestRequest.replace(self.LEO_TRANSLATIONCODE_TEMPLATE, languageCode)
+        secure_search_text = urllib.parse.quote(search_text)
+        suggest_request = LEO_TRANSLATION_SERVICE.replace(PLACEHOLDER_QUERY, secure_search_text).replace(PLACEHOLDER_TRANSLATIONCODE, language_code)
         
-        with self.urlOpener.open(suggestRequest) as response:
+        with self._url_opener.open(suggest_request) as response:
             root = ET.fromstring(response.read())
             
-            leftHitCount = root.find('search').get('hitWordCntLeft')
-            rightHitCount = root.find('search').get('hitWordCntRight')
+            left_hit_count = root.find(XML_TAG_SEARCH).get(XML_TAG_LEFT_WORD)
+            right_hit_count = root.find(XML_TAG_SEARCH).get(XML_TAG_RIGHT_WORD)
             
-            for entry in root.iter('entry'):
-                leftText = entry[0].find('words').find('word').text
-                leftLanguage = entry[0].get('lang')
+            for entry in root.iter(XML_TAG_ENTRY):
+                left_text = entry[0].find(XML_TAG_WORDS).find(XML_TAG_WORD).text
+                left_language = entry[0].get('lang')
                 
-                rightText = entry[1].find('words').find('word').text
-                rightLanguage = entry[1].get('lang')
+                right_text = entry[1].find(XML_TAG_WORDS).find(XML_TAG_WORD).text
+                right_language = entry[1].get('lang')
                 
-                if (leftHitCount > rightHitCount):
-                    newItem = TranslatedEntry(rightText, leftText, rightLanguage)
-                    resultList.append(newItem)
+                if left_hit_count > right_hit_count:
+                    new_item = TranslatedEntry(right_text, left_text, right_language)
+                    result_list.append(new_item)
                 else:
-                    newItem = TranslatedEntry(leftText, rightText, leftLanguage)
-                    resultList.append(newItem)
+                    new_item = TranslatedEntry(left_text, right_text, left_language)
+                    result_list.append(new_item)
                     
-        return resultList
-        
-        
+        return result_list
 
-class LanguageEntry:
 
-    keyword = None
-    languageCode = None
+class TranslatedEntry:
+
+    caption = None
     description = None
-    iconHandle = None
-    
-    def __init__(self, keyword, languageCode, description, iconHandle):
-        self.keyword = keyword
-        self.languageCode = languageCode
+    language = None
+
+    def __init__(self, caption, description, language):
+        self.caption = caption
         self.description = description
-        self.iconHandle = iconHandle
+        self.language = language
