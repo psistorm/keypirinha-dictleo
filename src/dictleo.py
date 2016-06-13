@@ -2,6 +2,7 @@
 
 import keypirinha as kp
 import keypirinha_util as kpu
+from collections import OrderedDict
 from .lib.leoparser import LeoParser
 
 
@@ -10,11 +11,14 @@ class DictLeo(kp.Plugin):
     Translate words with leo online dictionary
     """
 
-    ACTION_DEFAULT = 'default'
+    ACTION_DEFAULT = '0_default'
+    ACTION_OPEN_LEO = '1_open_in_leo'
+
+    URL_LEO = 'http://dict.leo.org/dictQuery/m-vocab/{0}/{1}.html?searchLoc=0&lp={0}&directN=0&rmWords=off&search={2}&resultOrder=basic&multiwordShowSingle=on'
 
     _languages = {}
     _icons = {}
-    _actions = {}
+    _actions = OrderedDict()
     
     _parser = None
 
@@ -96,9 +100,17 @@ class DictLeo(kp.Plugin):
     def on_execute(self, item, action):
         if not item and item.category() != kp.ItemCategory.EXPRESSION:
             return
-        
+        if not item.data_bag():
+            return
+
+        data_bag = kpu.kwargs_decode(item.data_bag())
         if not action or action.name() == self.ACTION_DEFAULT:
-            kpu.set_clipboard(item.label())
+            kpu.set_clipboard(data_bag['text'])
+        elif action.name() == self.ACTION_OPEN_LEO:
+            kpu.web_browser_command(
+                url=self.URL_LEO.format(data_bag['language_code'], data_bag['item_language'], data_bag['text']),
+                execute=True
+            )
 
     def on_events(self, flags):
         if flags & kp.Events.PACKCONFIG:
@@ -188,7 +200,14 @@ class DictLeo(kp.Plugin):
             short_desc='Copy the selected translation text to the clipboard.'
         )
 
-        self.set_actions(kp.ItemCategory.EXPRESSION, list(self._actions.values()))
+        self._actions[self.ACTION_OPEN_LEO] = self.create_action(
+            name=self.ACTION_OPEN_LEO,
+            label='Open translation in Leo',
+            short_desc='Shows the translation results on leo.dict.org'
+        )
+
+        list_of_actions = list(self._actions.values())
+        self.set_actions(kp.ItemCategory.EXPRESSION, list_of_actions)
 
 
 class LanguageEntry:
