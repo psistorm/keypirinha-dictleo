@@ -14,7 +14,7 @@ class DictLeo(kp.Plugin):
     ACTION_DEFAULT = '0_default'
     ACTION_OPEN_LEO = '1_open_in_leo'
 
-    URL_LEO = 'http://dict.leo.org/dictQuery/m-vocab/{0}/{1}.html?searchLoc=0&lp={0}&directN=0&rmWords=off&search={2}&resultOrder=basic&multiwordShowSingle=on'
+    URL_LEO = 'http://dict.leo.org/dictQuery/m-vocab/{language_code}/{item_language}.html?searchLoc=0&lp={language_code}&directN=0&rmWords=off&search={user_query}&resultOrder=basic&multiwordShowSingle=on'
 
     _languages = {}
     _icons = {}
@@ -91,7 +91,8 @@ class DictLeo(kp.Plugin):
                 data_bag=kpu.kwargs_encode(
                     language_code=current_language.language_code,
                     item_language=leo_translation.language,
-                    text=leo_translation.caption
+                    user_query=user_input,
+                    translation_result=leo_translation.caption
                 )
             ))
 
@@ -105,10 +106,10 @@ class DictLeo(kp.Plugin):
 
         data_bag = kpu.kwargs_decode(item.data_bag())
         if not action or action.name() == self.ACTION_DEFAULT:
-            kpu.set_clipboard(data_bag['text'])
+            kpu.set_clipboard(data_bag['translation_result'])
         elif action.name() == self.ACTION_OPEN_LEO:
             kpu.web_browser_command(
-                url=self.URL_LEO.format(data_bag['language_code'], data_bag['item_language'], data_bag['text']),
+                url=self.URL_LEO.format(**data_bag),
                 execute=True
             )
 
