@@ -14,11 +14,8 @@ XML_TAG_ENTRY = 'entry'
 XML_TAG_WORD = 'word'
 XML_TAG_WORDS = 'words'
 
-PLACEHOLDER_QUERY = '{{query}}'
-PLACEHOLDER_TRANSLATIONCODE = '{{translation_code}}'
-
-LEO_SUGGESTION_SERVICE = 'http://dict.leo.org/dictQuery/m-query/conf/{{translation_code}}/query.conf/strlist.json?q={{query}}'
-LEO_TRANSLATION_SERVICE = 'http://dict.leo.org/dictQuery/m-vocab/{{translation_code}}/query.xml?tolerMode=nof&lp={{translation_code}}&lang=de&rmWords=off&rmSearch=on&search={{query}}&searchLoc=0&resultOrder=basic&multiwordShowSingle=on&pos=0&sectLenMax=16&n=1'
+LEO_SUGGESTION_SERVICE = 'http://dict.leo.org/dictQuery/m-query/conf/{language_code}/query.conf/strlist.json?q={query}'
+LEO_TRANSLATION_SERVICE = 'http://dict.leo.org/dictQuery/m-vocab/{language_code}/query.xml?tolerMode=nof&lp={language_code}&lang=de&rmWords=off&rmSearch=on&search={query}&searchLoc=0&resultOrder=basic&multiwordShowSingle=on&pos=0&sectLenMax=16&n=1'
 
 
 class LeoParser:
@@ -35,7 +32,10 @@ class LeoParser:
         result_list = []
         
         secure_search_text = urllib.parse.quote(search_text)
-        suggest_request = LEO_TRANSLATION_SERVICE.replace(PLACEHOLDER_QUERY, secure_search_text).replace(PLACEHOLDER_TRANSLATIONCODE, language_code)
+        suggest_request = LEO_TRANSLATION_SERVICE.format(
+            query=secure_search_text,
+            language_code=language_code
+        )
         
         with self._url_opener.open(suggest_request) as response:
             root = ET.fromstring(response.read())
