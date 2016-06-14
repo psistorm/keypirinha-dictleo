@@ -3,7 +3,9 @@ Keypirinha Plugin: Leo Dictionary
 
 ![Searching with leo](images/screenshot_en_de_translate.png)
 
-Searches the German Leo dictionary ([http://dict.leo.org](http://dict.leo.org "http://dict.leo.org")) for the languages English, French, Spanish, Italian, Chinese, Russian, Portuguese and Polish. Feeds back the results into Keypirinha for instantly seeing the translated word. When hitting 'Enter' the translated word is copied to the clipboard.
+Searches the German Leo dictionary ([http://dict.leo.org](http://dict.leo.org "http://dict.leo.org")) for the languages English, French, Spanish, Italian, Chinese, Russian, Portuguese and Polish. Feeds back the results into Keypirinha for instantly seeing the translated word.
+
+When hitting 'Enter' the translated word is copied to the clipboard. Hit 'Ctrl+Enter' to show all available actions. Here you can also select to show translation results on [http://dict.leo.org](http://dict.leo.org "http://dict.leo.org").
 
 There are multiple ways to search Leo:
 
@@ -16,7 +18,10 @@ There are multiple ways to search Leo:
 * dp - Translating a German word to Polish and vice versa.
 
 
-## Release Notes: ##
+## Release Notes:
 
-V 1.0:
-First release of plugin.
+**V 1.0**
+- First release of plugin.
+
+**V 1.1**
+- Added alternative action to show translation results on leo.dict.lorg
