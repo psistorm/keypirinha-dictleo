@@ -19,7 +19,7 @@ class DictLeo(kp.Plugin):
     _languages = {}
     _icons = {}
     _actions = OrderedDict()
-    
+
     _parser = None
 
 
@@ -31,12 +31,12 @@ class DictLeo(kp.Plugin):
 
     def on_start(self):
         self._parser = LeoParser()
-        
+
         self._read_config()
-        
+
         self._clean_icons()
         self._init_icons()
-        
+
         self._languages.clear()
         self._init_languages()
 
@@ -46,7 +46,7 @@ class DictLeo(kp.Plugin):
         self._read_config()
 
         catalog = []
-        
+
         for language_key, language_data in self._languages.items():
             catalog.append(self.create_item(
                 category=kp.ItemCategory.KEYWORD,
@@ -57,15 +57,17 @@ class DictLeo(kp.Plugin):
                 hit_hint=kp.ItemHitHint.NOARGS,
                 icon_handle=language_data.icon_handle)
             )
-                
+
         self.set_catalog(catalog)
 
-    def on_suggest(self, user_input, initial_item, current_item):
+    def on_suggest(self, user_input, items_chain):
         if len(user_input) == 0:
             return
-        if not initial_item:
+        if not items_chain:
             return
-        
+
+        initial_item = items_chain[0]
+
         # avoid flooding Leo with too much unnecessary queries in
         # case user is still typing her search
         if self.should_terminate(0.250):
@@ -74,7 +76,7 @@ class DictLeo(kp.Plugin):
             return
 
         suggestions = []
-        
+
         current_language = self._languages[initial_item.target()]
 
         for leo_translation in self._parser.translate(current_language.language_code, user_input):
@@ -120,7 +122,7 @@ class DictLeo(kp.Plugin):
 
     def _read_config(self):
         settings = self.load_settings()
-        
+
         proxy_enabled = settings.get_bool("proxy_enabled", "main", False)
         if not proxy_enabled:
             self._parser.set_proxy()
