@@ -25,3 +25,6 @@ There are multiple ways to search Leo:
 
 **V 1.1**
 - Added alternative action to show translation results on leo.dict.lorg
+
+**V 1.1.1**
+- Small internal adjustments due to Keypirinha API v2.7 changes
